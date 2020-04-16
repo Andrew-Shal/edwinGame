@@ -22,6 +22,18 @@ Enemy::Enemy(QGraphicsItem *parent): QObject(), QGraphicsPixmapItem(parent)
 //    setTransformOriginPoint(50,50);
 //    setRotation(180);
 
+//    if(game->levels == 1){
+//            setPixmap(QPixmap(":/images/images/enemy.png"));
+//        }else if(game->levels == 2){
+//            setPixmap(QPixmap(":/images/images/enemy.png"));
+//        }else if(game->levels == 3){
+//            setPixmap(QPixmap(":/images/images/enemy.png"));
+//        }else if(game->levels == 4){
+//            setPixmap(QPixmap(":/images/images/enemy.png"));
+//        }else if(game->levels == 5){
+//            setPixmap(QPixmap(":/images/images/enemy.png"));
+//        }
+
     QTimer *timer = new QTimer(this);
 
     //connect
@@ -32,11 +44,22 @@ Enemy::Enemy(QGraphicsItem *parent): QObject(), QGraphicsPixmapItem(parent)
 
 void Enemy::move()
 {
-    setPos(x(), y()+5); //enemy is moving down so we increase the y value. We inclrease by 5 to be slower than the bullet
+    /*setPos(x(), y()+5);*/ //enemy is moving down so we increase the y value. We inclrease by 5 to be slower than the bullet
+    if(game->levels == 1){
+        setPos(x(),y()+5);
+    }else if(game->levels == 2){
+        setPos(x(),y()+7);
+    }else if(game->levels == 3){
+        setPos(x(),y()+9);
+    }else if(game->levels == 4){
+        setPos(x(),y()+11);
+    }else if(game->levels == 5){
+        setPos(x(),y()+13);
+    }
+
     if(pos().y() > 600){
         //decrease the health
         game->health->decrease();
-
         scene()->removeItem(this);
         delete this;
         //qdebug()<<"Enemy deleted";

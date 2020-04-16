@@ -1,11 +1,14 @@
 #include "game.h"
 #include <QTimer>
 #include <QMediaPlayer>
-
 #include <QHeaderView>
+#include <QMessageBox>
+#include <QApplication>
+
 
 Game::Game(QWidget *)
 {
+
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setFixedSize(800,600);
@@ -21,6 +24,9 @@ Game::Game(QWidget *)
     highscoreScene = nullptr;
     loginScene = nullptr;
     createAccountScene = nullptr;
+    gameOverScene = nullptr;
+
+    gameOverText = nullptr;
 
     buildLoginScene();
 
@@ -33,7 +39,6 @@ void Game::buildPlayNowScene()
     // if not initialized
     if(playNowScene == nullptr){
         playNowScene = new QGraphicsScene();
-
         playNowScene->setSceneRect(0,0,800,600); // make the scene 800x600 instead of infinity by infinity (default)
 
         playNowBtn = new QPushButton();
@@ -141,9 +146,12 @@ void Game::buildGamePlayScene()
         gamePlayScene = nullptr;
     }
 
-    gamePlayScene = new QGraphicsScene();
+    _score.score(0);
 
-    setBackgroundBrush(QBrush(QImage(":/images/images/bg.png")));
+    gamePlayScene = new QGraphicsScene();
+    gamePlayScene->setSceneRect(0,0,800,600); // make the scene 800x600 instead of infinity by infinity (default)
+    setBackgroundBrush(QBrush(QImage(":/images/images/playNow_Bg.png")));
+
 
     // visualize the newly initialized scene
     setScene(gamePlayScene); // since class Game inherits from class QGraphicsView, it can directly visualize a scene
@@ -162,14 +170,34 @@ void Game::buildGamePlayScene()
     // create the score
     score = new Score();
     gamePlayScene->addItem(score);
+
+    //health
     health = new Health();
     health->setPos(health->x(),health->y()+25);
+
+    connect(health,SIGNAL(died()),this,SLOT(playerHasDied()));
+
     gamePlayScene->addItem(health);
 
+    //create the level
+    Level = new QGraphicsTextItem();
+    Level->setPlainText(QString("Level: ") + QString::number(levels));
+    Level->setDefaultTextColor(Qt::yellow);
+    Level->setPos(Level->x(),Level->y() + 50);
+    scene()->addItem(Level);
+    Level->setFont(QFont("times", 16));
+
     // spawn enemies
-    QTimer * timer = new QTimer();
-    QObject::connect(timer,SIGNAL(timeout()),player,SLOT(spawn()));
+    QTimer *timer = new QTimer();
+    connect(timer,SIGNAL(timeout()),player,SLOT(spawn()));
     timer->start(2000);
+
+    //increase the level every ten seconds
+    QTimer *gameLevel = new QTimer();
+    connect(gameLevel,SIGNAL(timeout()),this, SLOT(increaseLevel()));
+
+    gameLevel->start(10000);
+
 
     //play background music
     QMediaPlayer *music = new QMediaPlayer();
@@ -182,6 +210,16 @@ void Game::onPlayButtonTriggered(){
 
 void Game::onHighScoreBtnTriggered(){
     buildHighScoresScene();
+}
+
+void Game::onPlayAgainBtnTriggered()
+{
+    buildGamePlayScene();
+}
+
+void Game::onMainMenuBtnTriggered()
+{
+    buildPlayNowScene();
 }
 
 void Game::onLoginBtnTriggered()
@@ -226,8 +264,86 @@ void Game::enableCreateAccountButton(QString text)
     createAccountBtn->setEnabled(state);
 }
 
+void Game::saveUserScore()
+{
+    qDebug()<<"user: "<<_user;
+    // score belonging to a user
+    if(_user.userID() != -1){
+        _score.userRefID(_user.userID());
+        if(score->getScore() != 0){
+            _score.score(score->getScore());
+            DAO->insertUserScore(_score);
+        }
+    }
+}
+
+void Game::increaseLevel()
+{
+    if(gameStarted){
+            levels++;
+            Level->setPlainText(QString("Level: ") + QString::number(levels));
+            health->decrease();
+
+            if(levels > 5){
+                scene()->clear();
+                QMessageBox msgBox;
+                msgBox.setText(QString(" GAME OVER \nYou Won!: "));
+                msgBox.exec();
+                this->close();
+            }
+    }
+}
+void Game::buildGameOverScene(){
+    // if not initialized
+    if(gameOverScene == nullptr){
+        playNowScene->clear();
+        delete playNowScene;
+        playNowScene = nullptr;
+
+        gameOverScene = new QGraphicsScene();
+        gameOverScene->setSceneRect(0,0,800,600); // make the scene 800x600 instead of infinity by infinity (default)
+
+        saveUserScore();
+
+        //create the level
+        gameOverText = new QGraphicsTextItem();
+        gameOverText->setPlainText(QString("GAME OVER\n Your Score: "+QString::number(score->getScore())) +"\n Level: "+ QString::number(levels));
+        gameOverText->setDefaultTextColor(Qt::yellow);
+        gameOverText->setPos(QPointF(340,175));
+        gameOverScene->addItem(gameOverText);
+        gameOverText->setFont(QFont("times", 16));
+
+        playAgainBtn = new QPushButton();
+        playAgainBtn->setStyleSheet("QPushButton{background-color:black;color:white;}"
+                                  "QPushButton:hover{background-color:white;color:black;}");
+        playAgainBtn->setGeometry(((800/2)-50),((600/2)-40),100,60);
+        playAgainBtn->setText("Play Again");
+        gameOverScene->addWidget(playAgainBtn);
+
+        mainMenuBtn = new QPushButton();
+        mainMenuBtn->setStyleSheet("QPushButton{background-color:black;color:white;}"
+                                     "QPushButton:hover{background-color:white;color:black;}");
+        mainMenuBtn->setGeometry(((800/2)-50),((600/2)+30),100,60);
+        mainMenuBtn->setText("Main Menu");
+        gameOverScene->addWidget(mainMenuBtn);
+
+        connect(playAgainBtn,&QPushButton::clicked,this,&Game::onPlayAgainBtnTriggered);
+        connect(mainMenuBtn,&QPushButton::clicked,this,&Game::onMainMenuBtnTriggered);
+    }
+
+    setBackgroundBrush(QBrush(QImage(":/images/images/playNow_Bg.png")));
+    setScene(gameOverScene);
+}
+
+void Game::playerHasDied()
+{
+    buildGameOverScene();
+}
+
 void Game::onClearBtnTriggered(){
     DAO->removeAllScores();
+    scoresTable->clear();
+    populateScoresTable();
 }
 void Game::onGoBackBtnTriggered(){
     buildPlayNowScene();
@@ -257,7 +373,7 @@ void Game::buildCreateAccountScene(){
     createAccountScene->addWidget(create_usernameInput);
 
     create_passwordInput = new QLineEdit();
-    create_passwordInput->setPlaceholderText("name");
+    create_passwordInput->setPlaceholderText("password");
     create_passwordInput->setGeometry(((800/2)-75),((600/2)-65),150,30);
     create_passwordInput->setStyleSheet("QLineEdit{color:#14890E;"
                                             "border-style:solid;"
@@ -312,6 +428,13 @@ void Game::buildHighScoresScene(){
     scoresTable = new QTableWidget();
     scoresTable->setRowCount(10);
     scoresTable->setColumnCount(3);
+
+    populateScoresTable();
+
+    highscoreScene->addWidget(scoresTable);
+}
+
+void Game::populateScoresTable(){
     QStringList tableHeader;
     tableHeader<<"Name"<<"Date"<<"Score";
     scoresTable->setHorizontalHeaderLabels(tableHeader);
@@ -343,16 +466,14 @@ void Game::buildHighScoresScene(){
         scoresTable->setItem(r, 2, new QTableWidgetItem(u_score));
         r++;
     }
-
-    highscoreScene->addWidget(scoresTable);
 }
 
 void Game::dataAccessTesting(){
     user_schema u1 = user_schema();
-    u1.userName("andrew");
+    u1.userName("steven");
 
     user_schema u2 = user_schema();
-    u2.userName("anisha");
+    u2.userName("melvin");
 
     user_schema u3 = user_schema();
     u3.userName("edwin");
@@ -449,16 +570,12 @@ void Game::dataAccessTesting(){
 }
 
 void Game::closeEvent(QCloseEvent *e){
-    qDebug()<<"user: "<<_user;
-    // score belonging to a user
-    if(_user.userID() != -1){
-        _score.userRefID(_user.userID());
-        _score.score(score->getScore());
-        DAO->insertUserScore(_score);
-    }
-
+    // save user score
+    saveUserScore();
     e->accept();
 }
+
+
 
 
 

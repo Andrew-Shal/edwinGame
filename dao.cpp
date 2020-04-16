@@ -115,9 +115,12 @@ user_schema dao::findUserbyNameandPwd(QString u_name, QString pwd)
 
 void dao::insertUserScore(score_schema u_score)
 {
-    QString sql = "INSERT INTO scores (userIDfk, score) VALUES ('"+QString::number(u_score.userRefID())+"', '"+QString::number(u_score.score())+"')";
+    QString sql = "INSERT INTO scores (userIDfk, score) "
+                  "SELECT '"+QString::number(u_score.userRefID())+"', '"+QString::number(u_score.score())+"' "
+                  "WHERE NOT EXISTS(SELECT 1 FROM scores WHERE userIDfk = '"+QString::number(u_score.userRefID())+"' AND score = '"+QString::number(u_score.score())+"')";
+
     if(_db->openConnection()){
-        _db->execQuery(sql);
+        _db->execTransaction(sql);
     }
 }
 

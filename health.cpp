@@ -1,5 +1,9 @@
 #include "health.h"
+#include <QMessageBox>
 #include <QFont>
+#include <QGraphicsScene>
+#include <QMessageBox>
+#include <QApplication>
 
 Health::Health(QGraphicsItem *parent) : QGraphicsTextItem(parent)
 {
@@ -17,6 +21,9 @@ void Health::decrease()
     health--;
     setPlainText(QString("Health: ") + QString::number(health));
 
+    if(health == 0){
+        emit died();
+    }
 }
 
 int Health::getHealth()

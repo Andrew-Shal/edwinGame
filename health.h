@@ -6,6 +6,9 @@
 
 class Health : public QGraphicsTextItem
 {
+    Q_OBJECT
+signals:
+    void died();
 public:
     Health(QGraphicsItem *parent = 0);
     void decrease();
